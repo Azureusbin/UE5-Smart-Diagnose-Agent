@@ -6,10 +6,10 @@
 `EMBED_MODEL` 指过去即可：`EMBED_MODEL=./models/bge-m3`
 
 用法：
-    python scripts/fetch_model.py                    # 默认下到 models/bge-m3
-    python scripts/fetch_model.py --dir D:\\models\\bge-m3
-    python scripts/fetch_model.py --list             # 只看文件清单，不下载
-    python scripts/fetch_model.py --repo BAAI/bge-m3
+    python -m uediag.fetch_model                    # 默认下到 models/bge-m3
+    python -m uediag.fetch_model --dir D:\\models\\bge-m3
+    python -m uediag.fetch_model --list             # 只看文件清单，不下载
+    python -m uediag.fetch_model --repo BAAI/bge-m3
 
 特性：断点续传（Range）、已完成文件跳过、进度与速度实时打印。
 """

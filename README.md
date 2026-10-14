@@ -18,12 +18,12 @@
 pip install -r requirements.txt
 
 # 0) 取嵌入模型权重（约 2.1 GB，一次就够；支持断点续传）
-python scripts/fetch_model.py
+python -m uediag.fetch_model
 ```
 
 > **为什么要这一步**：权重需要预先拉到本地，之后才能完全离线加载。
-> `scripts/fetch_model.py` 从魔搭（ModelScope）下载到 `models/bge-m3/`，BAAI 官方也在上面发布，国内直连。
-> 想用别的位置：`python scripts/fetch_model.py --dir D:\models\bge-m3`，并同步改 `.env` 的 `EMBED_MODEL`。
+> `uediag/fetch_model.py` 从魔搭（ModelScope）下载到 `models/bge-m3/`，BAAI 官方也在上面发布，国内直连。
+> 想用别的位置：`python -m uediag.fetch_model --dir D:\models\bge-m3`，并同步改 `.env` 的 `EMBED_MODEL`。
 
 首次运行任何命令都会**自动生成 `.env`**，去里面填上 `OPENAI_API_KEY` 即可（其余项都有默认值）。
 
@@ -43,6 +43,9 @@ python -m uediag diagnose --log data/samples/crash_demo.log --print-trace
 
 # 5) 检索验收（约 0.05 秒，改完知识库顺手跑一次）
 python tests/accept_retrieval.py
+
+# 6) Web UI（浏览器演示用；左上传 / 中报告 / 右 trace）
+python -m streamlit run uediag/web.py --server.address 127.0.0.1
 ```
 
 ## 配置
@@ -56,14 +59,14 @@ python tests/accept_retrieval.py
 | `OPENAI_API_URL` | `https://api.deepseek.com` | SDK 默认找的是 `OPENAI_BASE_URL`，所以代码里显式传 `base_url` |
 | `MODEL_TEXT` | `deepseek-v4-flash` | 规划 / Function Calling / 报告 |
 | `MODEL_VISION` | `deepseek-v4-flash-vision-exp` | 只读图出结构化信息 |
-| `THINKING` | `disabled` | 思考模式开关。**开着就不支持指定函数的 `tool_choice`**（收尾无法强制 `finish`），且每轮必须回传 `reasoning_content`。详见 AGENT_GUIDE.md §2.2.1 |
+| `THINKING` | `disabled` | 思考模式开关。**开着就不支持指定函数的 `tool_choice`**（收尾无法强制 `finish`），且每轮必须回传 `reasoning_content`。 |
 | `REASONING_EFFORT` | `high` | 仅 `THINKING=enabled` 时生效：`low`/`high`/`max` |
 | `MAX_STEPS` | `6` | 唯一的预算闸 |
 | `MAX_OBSERVATION_CHARS` | `1200` | 单条工具结果截断 |
 | `TOP_K` / `RRF_K` | `3` / `60` | 检索条数与融合参数 |
 | `RETRIEVER` | `hybrid` | `hybrid`（BM25+向量）/ `vector`（只要向量）/ **`bm25`（不加载模型、不访问向量库，0.1 秒启动）** |
 | `EMBED_BACKEND` | `local` | `local`（真模型）或 `mock`（哈希伪向量，离线单测用） |
-| `EMBED_MODEL` | `./models/bge-m3` | 本地权重目录（由 `scripts/fetch_model.py` 准备） |
+| `EMBED_MODEL` | `./models/bge-m3` | 本地权重目录（由 `uediag/fetch_model.py` 准备） |
 | `CHROMA_PATH` / `KNOWLEDGE_DIR` / `TRACE_DIR` | `./.chroma` / `./knowledge/ue_errors` / `./runs` | 路径 |
 
 > 换过 `EMBED_BACKEND` / `EMBED_MODEL` 之后跑一次 `kb rebuild`：程序会检测到编码方式变化并**自动重建集合**（向量维度不同，不能混用）。
@@ -81,13 +84,31 @@ uediag/
 ├─ trace.py     轨迹记录与时间线打印
 ├─ report.py    报告渲染
 ├─ cli.py       命令行入口
-├─ tools.py     ★ 待写：3 个工具 + schema
-└─ agent.py     ★ 待写：Function Calling 循环
+├─ tools.py     3 个工具 + schema（search_kb / read_screenshot / finish）
+├─ agent.py     Function Calling 循环
+├─ web.py       Web UI：左侧上传 · 右侧 Tab 切换「诊断报告 / Agent 轨迹」
+└─ fetch_model.py  从魔搭拉 BGE-M3 权重（python -m uediag.fetch_model）
 ```
 
-**★ 待写的两个文件**（核心，要亲手写）：
+### Web UI
 
-### `uediag/tools.py`
+```bash
+python -m streamlit run uediag/web.py --server.address 127.0.0.1
+```
+
+> 用 `python -m streamlit` 而不是裸 `streamlit`：后者要求 `Scripts/` 在 PATH 上，很多环境里没有。
+> `--server.address 127.0.0.1` 是让它只监听本机，不加会绑 `0.0.0.0`（局域网/公网可访问）。
+
+左栏是**一个多选拖拽区**：日志（`.log`/`.txt`）和报错截图可以一起拖进去，程序按后缀/MIME
+自动分流，日志会兼容 UTF-8 / UTF-16 / GBK 编码（多个日志按顺序合并）。下面一句话描述可选。
+中栏出报告（可下载 Markdown / 看原始 JSON），右栏是逐步展开的 trace 时间线 —— 每一步的
+工具、参数、观察结果、耗时与花费都能点开看。**看不看截图由模型自己决定**：它认为日志证据
+不够时会主动调 `read_screenshot`。
+
+> **权重在打开页面时就加载**（用 `st.cache_resource` 缓存）：第一次进页面会转十几秒加载 BGE-M3，
+> 之后就绪，点「开始诊断」不再等模型。权重缺失时页面照常渲染，只提示去跑 `uediag/fetch_model.py`。
+
+### 三个工具
 
 三个工具 + JSON Schema，供 `llm.chat(..., tools=...)` 使用：
 
@@ -95,7 +116,7 @@ uediag/
 |---|---|---|
 | `search_kb` | `query`, `top_k=3` | 调 `kb.search_kb(query, top_k)` |
 | `read_screenshot` | `image_ref`, `question` | 调 `llm.describe_image(path, question)`，返回纯文本 |
-| `finish` | `report`（字段 = `DiagnosisReport`） | 返回终止信号；参数用 `DiagnosisReport.from_tool_args()` 解析 |
+| `finish` | 报告字段（= `DiagnosisReport`） | 返回终止信号；参数用 `DiagnosisReport.from_tool_args()` 解析 |
 
 ### `uediag/agent.py`
 

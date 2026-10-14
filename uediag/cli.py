@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         from uediag.agent import run                     # type: ignore
     except ImportError:
         print("[待实现] uediag/agent.py 还没有 run()。\n"
-              "  这是你要亲手写的部分（写法见 AGENT_GUIDE.md）：\n"
+              "  这是你要亲手写的部分：\n"
               "    tools.py —— 3 个工具 + schema + dispatch(name, args) -> (文本, docs)\n"
               "    agent.py —— run(log_path, image_path, note) -> DiagnosisReport（记得填 trace_id）\n"
               "  在这之前，可以先用下面两个子命令验证通用件：\n"
@@ -97,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
               "    python -m uediag log show data/samples/crash_demo.log")
         return 2
 
-    from uediag.report import render_markdown, to_json
+    from uediag.report import render_markdown, to_json, usage_line
     from uediag.trace import print_trace, read_trace
 
     report = run(log_path=a.log, image_path=a.image, note=a.note)
@@ -106,6 +106,8 @@ def main(argv: list[str] | None = None) -> int:
         print(to_json(report))
     else:
         print(render_markdown(report, docs))
+        print()                                          # 成本/trace 是元信息，恒打印
+        print(usage_line(report))
         if a.print_trace or cfg_bool("PRINT_TRACE"):
             print()
             print_trace(read_trace(report.trace_id))

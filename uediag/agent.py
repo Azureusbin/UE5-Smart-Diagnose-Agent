@@ -3,7 +3,7 @@ from __future__ import annotations
 from uediag import llm, tools
 from uediag.logparse import clean_log
 from uediag.trace import TraceRecorder
-from uediag.types import *
+from uediag.types import DiagnosisReport, Evidence, RetrievedDoc, cfg, cfg_int, ensure_env
 
 SYSTEM_PROMPT = """你是 UE5 项目排障助手，服务对象是策划/美术/QA 和技术新人。
 
@@ -26,13 +26,14 @@ def run(log_path: str | None = None, image_path: str | None = None, note: str = 
     evidence = clean_log(log_path) if log_path else Evidence()
     tr.perceive(evidence)
 
-    # step 1 : 组装User消息， 只给「证据 + 可用截图路径」，图片本身不进上下文
+    # step 1 : 组装User消息，只给「证据 + 可用截图路径」，图片本身不进上下文
+    # 看不看图由模型决定（它自己调 read_screenshot 工具），所以这里只报路径、不预先抽图
     parts = []
     if note:
         parts.append(f"用户描述：{note}")
     parts.append(evidence.render())
     if image_path:
-        parts.append(f"可用截图：{image_path}")
+        parts.append(f"可用截图：{image_path}（需要看图时调用 read_screenshot，image_ref 原样填这个路径）")
 
     messages: list[dict] = [
         { "role": "system", "content": SYSTEM_PROMPT },
@@ -41,14 +42,15 @@ def run(log_path: str | None = None, image_path: str | None = None, note: str = 
 
     retrieved: dict[str, RetrievedDoc] = {}
     report: DiagnosisReport | None = None
+    seen_calls: set[tuple] = set()          # 防重复：同一 (工具, 参数) 只执行一次
 
     # 循环
     max_step = cfg_int("MAX_STEPS")
     for _ in range(max_step):
-        before = llm.get_usage()
+        before = llm.usage()
         with llm.Timer() as t:
             msg = llm.chat(messages, tools=tools.TOOL_SCHEMAS)
-        after = llm.get_usage()
+        after = llm.usage()
 
         # assistant 消息必须原样回传（含 tool_calls），否则下一轮的 tool 消息无法配对
         messages.append(llm.as_message_dict(msg))
@@ -67,10 +69,21 @@ def run(log_path: str | None = None, image_path: str | None = None, note: str = 
             name = call.function.name
             args = llm.tool_args(call)
             if name == "finish":
-                report = DiagnosisReport(name, args)
+                # 必须走 from_tool_args：直接把 args 传成第二个位置参数会落到 confidence 上
+                # （陷阱：DiagnosisReport 的第一个位置参数是 category，不是工具名）
+                if not args:
+                    messages.append({"role": "user", "content": "finish 需要参数，请重新调用 finish。"})
+                    continue
+                report = DiagnosisReport.from_tool_args(args, tr.trace_id)
                 break
-            obs, docs = tools.dispatch(name, args)
-            retrieved.update({d.doc_id: d for d in docs})
+            key = (name, tuple(sorted((k, str(v)) for k, v in args.items())))
+            if key in seen_calls:
+                obs = (f"工具 {name} 的这组参数刚刚已经执行过，结果没有变化。"
+                       "请换一组参数 / 关键词重试，或直接调用 finish 收尾。")
+            else:
+                seen_calls.add(key)
+                obs, docs = tools.dispatch(name, args)
+                retrieved.update({d.doc_id: d for d in docs})
             messages.append(llm.tool_reply(call.id, obs))
             tr.step(phase="execute", action=name, observation=obs, model=cfg("MODEL_TEXT"))
 
@@ -82,14 +95,15 @@ def run(log_path: str | None = None, image_path: str | None = None, note: str = 
 
 
     if report is None:
-        msg = llm.chat(messages, tools=[tools.FINISH_SCHEMA], tool_choice={"type": "function", "function": "finish"})
+        msg = llm.chat(messages, tools=[tools.FINISH_SCHEMA], tool_choice={"type": "function", "function": {"name": "finish"}})
         args = llm.tool_args(msg.tool_calls[0] if msg.tool_calls else {})
         report = DiagnosisReport.from_tool_args(args, tr.trace_id)
 
 
     report = validate_refs(report, retrieved)
     report.trace_id = tr.trace_id
-    report.cost_cny = llm.get_usage()["cost"]
+    report.cost_cny = llm.usage()["cost"]
+    report._docs = list(retrieved.values())
     tr.finish(report)
     return report
 
@@ -103,6 +117,6 @@ def validate_refs(report: DiagnosisReport, retrieved: dict) -> DiagnosisReport:
         print(f"[警告] 模型引用了不存在的 case，已剔除：{dropped}")
     if not kept:
         report.confidence = "low"
-        note = "知识库未覆盖该问题，以上结论仅供参考，建议直接找程序确认。"
-        report.summary = (report.summary + " " + note).strip()
+        note = "***以上结论仅供参考，建议找相关负责人确认。***"
+        report.summary = (report.summary + "  \n" + note).strip()
     return report

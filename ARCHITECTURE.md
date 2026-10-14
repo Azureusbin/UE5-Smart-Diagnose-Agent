@@ -50,7 +50,7 @@ python -m uediag log show data/samples/crash_demo.log   # 只跑日志收敛
 | **RAG 检索增强** | 知识库 case → 检索 top3 **全文**塞进上下文 | 报告里带 `[UE-ERR-0012]` 引用，能点回原文 |
 | **双轨知识库**（BGE-M3 + ChromaDB） | 稠密轨：BGE-M3 编码进 Chroma（cosine）／稀疏轨：BM25 关键词打分／两路 **RRF 融合** | 口语化描述 与 错误码 两类 query 都能命中 |
 | **DeepSeek 文本 + Vision** | 规划固定用 `deepseek-v4-flash`；截图交给 `deepseek-v4-flash-vision-exp` **只做结构化抽取** | 截图能读出错误码 / 资产路径 |
-| **Streamlit Web UI** | 单文件：左侧上传、中间报告、右侧 trace 时间线 | 浏览器现场演示 |
+| **Streamlit Web UI** | 单文件：左侧上传、右侧 Tab 切换报告与 trace 时间线 | 浏览器现场演示 |
 
 ---
 
@@ -289,7 +289,7 @@ def search_kb(query, top_k=3):
 ### 6.4 防幻觉（5 行代码，不能省）
 
 - 报告里的 `evidence_refs` **必须 ⊆ 本次检索到的 doc_id 集合**；不实的直接剔除
-- 剔除后引用为空 → **置信度强制降为 `low`**，并写明「知识库未覆盖，建议升级给程序」
+- 剔除后引用为空 → **置信度强制降为 `low`**，并写明「知识库未覆盖，建议升级给程序同学」
 - **宁可说不知道，也不编修复步骤**——这是排障工具的生命线
 
 ---
@@ -334,17 +334,16 @@ UE5-Smart-Diagnose-Agent/
 │  ├─ prompts/
 │  │  └─ vision_extract.md    # 视觉抽取指令（只抽取不推理）
 │  ├─ tools.py                # ★ 你写：3 个工具 + schema
-│  └─ agent.py                # ★ 你写：Function Calling 循环 + 引用校验 + 填 trace_id
+│  ├─ agent.py                # ★ 你写：Function Calling 循环 + 引用校验 + 填 trace_id
+│  ├─ web.py                  # Streamlit Web UI（streamlit run uediag/web.py）
+│  └─ fetch_model.py          # 从魔搭拉 BGE-M3 权重（python -m uediag.fetch_model）
 ├─ knowledge/
 │  ├─ ue_errors/*.md          # 5 条已就绪 + _template.md（照模板继续加）
 │  └─ redact.txt              # 脱敏规则（可选，一行 `正则 => 替换`）
 ├─ data/
 │  ├─ samples/*.log           # 3 个合成样本（崩溃 / 蓝图编译 / 链接错误）
 │  └─ private/                # 真实大日志（gitignore，体积+保密）
-├─ scripts/
-│  └─ fetch_model.py          # 从魔搭拉 BGE-M3 权重（HF 不可达时的替代路径，断点续传）
 ├─ models/                    # 本地权重（gitignore）
-├─ app/streamlit_app.py       # ★ 我写，等你喊
 └─ runs/                      # trace 输出（gitignore）
 ```
 
@@ -390,7 +389,7 @@ def ensure_env(path=".env"):
         raise SystemExit("请在 .env 里填入 OPENAI_API_KEY")
 ```
 
-`cli.py` 和 `streamlit_app.py` **第一行都调 `ensure_env()`**，所以两种入口都能自举。
+`cli.py` 和 `web.py` **第一行都调 `ensure_env()`**，所以两种入口都能自举。
 
 > 真实大日志（≥10 MB、含项目信息）放 **`data/private/`**，该目录已被 `.gitignore` 忽略——**体积和保密两件事一起解决**。
 
@@ -409,12 +408,12 @@ def ensure_env(path=".env"):
 | **M2** | Agent 循环 + 引用校验 + trace | `python -m uediag diagnose --log data/crash.log` 出报告；trace ≥3 步、模型自主调用 ≥2 次工具、伪造引用被剔除；**再用一份 ≥10 MB 的真实日志验证 `clean_log()`**：≤3 秒收敛、输出 ≤2000 行、错误码与栈顶业务帧抽取正确 |
 | **M3** | 截图链路 + Streamlit | 浏览器上传截图与日志都能演示；截图能读出错误码 |
 
-> **分工边界（重要）**：`uediag/agent.py` 与 `uediag/tools.py` **由你亲手写**（这是 Demo 的核心）；其余通用件（types / logparse / kb / llm / trace / report / cli / prompts / knowledge / samples）已由我落地并冒烟通过。`app/streamlit_app.py`（Web UI）也归我，**等你喊**。
+> **分工边界（重要）**：`uediag/agent.py` 与 `uediag/tools.py` **由你亲手写**（这是 Demo 的核心）；其余通用件（types / logparse / kb / llm / trace / report / cli / prompts / knowledge / samples）已由我落地并冒烟通过。`uediag/web.py`（Web UI）**已落地**。
 > **接缝**：`run(log_path=None, image_path=None, note="") -> DiagnosisReport`；UI 右栏时间线读 `{TRACE_DIR}/{report.trace_id}.jsonl`——**所以 `DiagnosisReport` 需要一个 `trace_id` 字段**（否则 UI 拿不到轨迹）。
 
 > **3 天排期**：**Day 1 = M1**（环境 + 知识库 + 双轨检索）→ **Day 2 = M2**（`clean_log` + 工具 + Agent 循环 + trace）→ **Day 3 上午 = M3 截图链路，下午 = Web UI + 冒烟测试 + 演示彩排**。
 > ⚠️ **最长的一根杆是 BGE-M3 权重（约 2.1 GB）**——一开工就后台启动，别等写到检索那一步才下。
-> **权重走魔搭**：用 `python scripts/fetch_model.py` 从魔搭（ModelScope）拉到 `models/bge-m3/`（支持断点续传），`.env` 的 `EMBED_MODEL` 指向它即可离线加载。
+> **权重走魔搭**：用 `python -m uediag.fetch_model` 从魔搭（ModelScope）拉到 `models/bge-m3/`（支持断点续传），`.env` 的 `EMBED_MODEL` 指向它即可离线加载。
 
 ---
 
@@ -462,4 +461,4 @@ def ensure_env(path=".env"):
 2. **工具调用**：用原生 Function Calling，不是让模型输出 JSON 再正则解析——省掉 markdown 围栏、非法 JSON、`"true"` 当布尔这些坑，还白拿并行调用和参数 schema 约束。
 3. **RAG**：`search_kb` 的 query 由模型自己写，所以「检索什么」也是规划的一部分；检索结果直接返回全文，省掉一次 `get_doc` 往返。
 4. **RAG 是双轨，且质量在入库时决定**：`embed_text` 用「标题+关键词+错误码+症状」而非全文——错误码必须显式写进去，否则查询带 `LNK2019` 时向量抓不住。检索时 BM25 补符号精确匹配、向量补口语化描述，**RRF 用排名融合，免调两路分数量纲**。
-5. **防幻觉**：报告引用必须 ⊆ 本次检索集合，不实引用剔除后置信度自动降为 `low`，并明说「知识库未覆盖，建议找程序」——**宁可说不知道，也不编答案**。
+5. **防幻觉**：报告引用必须 ⊆ 本次检索集合，不实引用剔除后置信度自动降为 `low`，并明说「知识库未覆盖，建议找程序员」——**宁可说不知道，也不编答案**。

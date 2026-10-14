@@ -37,7 +37,7 @@ DEFAULTS = {
     "CHROMA_PATH": "./.chroma",
     "KNOWLEDGE_DIR": "./knowledge/ue_errors",
     "EMBED_BACKEND": "local",         # local | mock
-    # 权重用 scripts/fetch_model.py 从魔搭下到本地目录，这里指向本地路径 → 离线加载
+    # 权重用 uediag/fetch_model.py 从魔搭下到本地目录，这里指向本地路径 → 离线加载
     "EMBED_MODEL": "./models/bge-m3",
     "VISION_DETAIL": "original",      # 报错截图文字密集，别用 low
     "TRACE_DIR": "./runs",
@@ -103,7 +103,7 @@ def require_api_key() -> str:
     if "OPENAI_API_KEY" not in os.environ:
         raise SystemExit(
             f"配置还没加载：没读到 {env_path}。\n"
-            "先调用 ensure_env()（命令行入口 `python -m uediag` / app.py / agent 已经自动调过）。\n"
+            "先调用 ensure_env()（命令行入口 `python -m uediag` / web.py / agent 已经自动调过）。\n"
             "例如：python -c \"from uediag.types import ensure_env; ensure_env(); ...\""
         )
     raise SystemExit(f"{env_path} 里的 OPENAI_API_KEY 是空的，请填入后重新运行。")

@@ -141,7 +141,7 @@ def encode(texts: list[str], kind: str = "doc") -> list[list[float]]:
 
         ref = cfg("EMBED_MODEL")
         hint = ("本地权重，离线加载" if Path(ref).exists()
-                else "首次会从网上下载；国内网络请先跑 python scripts/fetch_model.py")
+                else "首次会从网上下载；国内网络请先跑 python -m uediag.fetch_model")
         print(f"[知识库] 加载 {ref}（{hint}）……")
         _st_model = SentenceTransformer(ref)
     vectors = _st_model.encode(texts, normalize_embeddings=True, batch_size=8, show_progress_bar=False)
