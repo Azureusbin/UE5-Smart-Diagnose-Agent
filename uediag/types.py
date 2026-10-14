@@ -44,24 +44,36 @@ DEFAULTS = {
     "PRINT_TRACE": "false",
 }
 
-_ENV_PATH = os.environ.get("UEDIAG_ENV", ".env")
+def _env_path() -> Path:
+    """定位 .env。
+
+    默认锚在项目根（PROJECT_ROOT/.env），**不随 cwd 变**——否则在别的目录跑
+    `python -c "from uediag import llm"` 会去那边找/写 .env，或者直接 PermissionError。
+    UEDIAG_ENV 可覆盖；给相对路径时同样按项目根解析。
+    """
+    override = os.environ.get("UEDIAG_ENV")
+    if not override:
+        return PROJECT_ROOT / ".env"
+    p = Path(override)
+    return p if p.is_absolute() else PROJECT_ROOT / p
 
 
-def ensure_env(path: str | None = None) -> str:
-    """首次运行生成 .env；已存在则原样保留（绝不覆盖密钥）。返回实际使用的路径。"""
-    path = path or _ENV_PATH
-    if not os.path.exists(path):
+def ensure_env(path: str | Path | None = None) -> str:
+    """加载 .env（首次运行自动生成模板）；已存在则原样保留，绝不覆盖密钥。返回实际使用的路径。"""
+    env_path = Path(path) if path is not None else _env_path()
+    if not env_path.exists():
         header = (
             "# 本文件由程序自动生成（uediag/types.py: ensure_env）\n"
             "# 唯一必填：OPENAI_API_KEY\n"
             "# 其余项都有代码内置默认值，改哪条直接改值即可\n\n"
         )
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(header)
-            f.write("\n".join(f"{k}={v}" for k, v in DEFAULTS.items()) + "\n")
-        print(f"[配置] 已生成 {path}，请填入 OPENAI_API_KEY 后重新运行")
-    load_dotenv(path)                     # 已存在的环境变量不会被覆盖
-    return path
+        env_path.write_text(
+            header + "\n".join(f"{k}={v}" for k, v in DEFAULTS.items()) + "\n",
+            encoding="utf-8",
+        )
+        print(f"[配置] 已生成 {env_path}，请填入 OPENAI_API_KEY 后重新运行")
+    load_dotenv(env_path)                 # 已存在的环境变量不会被覆盖
+    return str(env_path)
 
 
 def cfg(key: str) -> str:
@@ -83,9 +95,18 @@ def cfg_bool(key: str) -> bool:
 def require_api_key() -> str:
     """只有真要调模型的路径才需要它——kb 检索不需要。"""
     key = cfg("OPENAI_API_KEY")
-    if not key or key.startswith("sk-你的"):
-        raise SystemExit("请在 .env 里填入 OPENAI_API_KEY")
-    return key
+    if key:
+        return key
+
+    # 区分「压根没加载配置」和「加载了但值是空的」——这两种情况用户要做的事不一样。
+    env_path = _env_path()
+    if "OPENAI_API_KEY" not in os.environ:
+        raise SystemExit(
+            f"配置还没加载：没读到 {env_path}。\n"
+            "先调用 ensure_env()（命令行入口 `python -m uediag` / app.py / agent 已经自动调过）。\n"
+            "例如：python -c \"from uediag.types import ensure_env; ensure_env(); ...\""
+        )
+    raise SystemExit(f"{env_path} 里的 OPENAI_API_KEY 是空的，请填入后重新运行。")
 
 
 def load_prompt(name: str) -> str:
