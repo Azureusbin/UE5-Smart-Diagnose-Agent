@@ -1,0 +1,19 @@
+[2026.10.13-10.02.09:881][  0]LogConfig: Applying CVar settings from [Project]/Config/DefaultEngine.ini
+[2026.10.13-10.02.09:902][  0]LogInit: Display: Engine is initialized. Leaving FEngineLoop::Init()
+[2026.10.13-10.02.10:114][ 12]LogStreaming: Display: Took 0.212s to LoadMap(/Game/Maps/L_FireRange)
+[2026.10.13-10.02.10:240][ 12]LogTemp: Warning: WeaponComponent is null on BP_Tank, skipping warmup
+[2026.10.13-10.02.10:512][ 12]LogBlueprint: Warning: BP_Tank has no default WeaponComponent assigned
+[2026.10.13-10.02.11:233][ 12]LogWindows: Error: === Critical error: ===
+[2026.10.13-10.02.11:233][ 12]LogWindows: Error:
+[2026.10.13-10.02.11:233][ 12]LogWindows: Error: Fatal error!
+[2026.10.13-10.02.11:233][ 12]LogWindows: Error:
+[2026.10.13-10.02.11:233][ 12]LogWindows: Error: Unhandled Exception: EXCEPTION_ACCESS_VIOLATION reading address 0x0000000000000000
+[2026.10.13-10.02.11:233][ 12]LogWindows: Error:
+[2026.10.13-10.02.11:240][ 12]LogWindows: Error: [Callstack] 0x00007ff6a1c211f0 UnrealEditor-MyGame.dll!UMyTank::OnFire() [D:\Work\Proj\Source\MyGame\Tank.cpp:88]
+[2026.10.13-10.02.11:240][ 12]LogWindows: Error: [Callstack] 0x00007ff6a1c21a44 UnrealEditor-MyGame.dll!UMyTank::FireWeapon() [D:\Work\Proj\Source\MyGame\Tank.cpp:64]
+[2026.10.13-10.02.11:241][ 12]LogWindows: Error: [Callstack] 0x00007ff6b00312aa UnrealEditor-Engine.dll!UWorld::Tick(ELevelTick TickType, float DeltaSeconds) [D:\UE5\Engine\Source\Runtime\Engine\Private\LevelTick.cpp:1620]
+[2026.10.13-10.02.11:241][ 12]LogWindows: Error: [Callstack] 0x00007ff6b002f110 UnrealEditor-Engine.dll!UEngine::TickWorldTravel(FWorldContext& WorldContext, float DeltaSeconds) [D:\UE5\Engine\Source\Runtime\Engine\Private\UnrealEngine.cpp:2210]
+[2026.10.13-10.02.11:241][ 12]LogWindows: Error: [Callstack] 0x00007ff6b0045510 UnrealEditor-Core.dll!FEngineLoop::Tick() [D:\UE5\Engine\Source\Runtime\Launch\Private\LaunchEngineLoop.cpp:5120]
+[2026.10.13-10.02.11:250][ 12]LogWindows: Error: === End of critical error ===
+[2026.10.13-10.02.11:253][ 12]LogExit: Executing StaticShutdownAfterError
+[2026.10.13-10.02.11:290][ 12]Log file closed, 2026.10.13-10.02.11

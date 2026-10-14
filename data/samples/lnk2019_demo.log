@@ -1,0 +1,6 @@
+[2026.10.13-09.00.01:001][  0]LogInit: Display: Running UnrealBuildTool: MyGameEditor Win64 Development
+[2026.10.13-09.00.42:310][  0]LogInit: Display: [2/8] Link MyGameEditor.exe
+[2026.10.13-09.00:43:884][  0]LogInit: Error: MyGameEditor.exe: error LNK2019: unresolved external symbol "public: void __cdecl UMyTank::FireWeapon(void)" (?FireWeapon@UMyTank@@QEAAXXZ) referenced in function "public: virtual void __cdecl UMyTank::BeginPlay(void)" (?BeginPlay@UMyTank@@UEAAXXZ)
+[2026.10.13-09.00:43:885][  0]LogInit: Error: MyGameEditor.exe: error LNK1120: 1 unresolved externals
+[2026.10.13-09.00:43:890][  0]LogInit: Error: Failed to link MyGameEditor.exe
+[2026.10.13-09.00:43:900][  0]LogInit: Display: BUILD FAILED, exit code 6

@@ -1,0 +1,30 @@
+# ── 密钥与本地配置 ────────────────────────────────
+.env
+.env.local
+
+# ── 派生产物（都能从知识库/代码一键重建）──────────
+.chroma/
+runs/
+.cache/
+
+# ── 真实日志样本：体积大且含项目信息，只放本地 ─────
+data/private/
+
+# ── Python ───────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# ── BGE-M3 本地模型权重（几百 MB ~ 2GB）───────────
+models/
+.cache/huggingface/
+
+# ── 编辑器 / 系统 ────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.hf-cache/
+report.md

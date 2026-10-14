@@ -1,0 +1,6 @@
+[2026.10.13-14.20.01:100][  0]LogInit: Display: Starting compile of BP_Tank
+[2026.10.13-14.20.01:340][  0]LogBlueprint: Error: [Compiler] BP_Tank  Error:  Could not find variable 'AmmoCount' on 'BP_Tank_C'
+[2026.10.13-14.20.01:341][  0]LogBlueprint: Error: [Compiler] BP_Tank  Error:  This blueprint has compile errors and cannot be saved
+[2026.10.13-14.20.01:345][  0]LogBlueprint: Error: [Compiler] BP_Tank : Could not be compiled. Please fix the compile errors and try again.
+[2026.10.13-14.20.01:350][  0]LogBlueprint: Warning: BP_Tank is now marked as broken and will not be usable until fixed
+[2026.10.13-14.20.02:010][  0]LogSlate: Warning: Blueprint editor tab for BP_Tank reported compile failure
